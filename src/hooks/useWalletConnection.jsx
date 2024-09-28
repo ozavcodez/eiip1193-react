@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
 
 const useWalletConnection = () => {
-  const [provider, setProvider] = useState(null);
+  const [ethereum, setEthereum] = useState(null);
   const [account, setAccount] = useState(null);
   const [chainId, setChainId] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -11,13 +10,12 @@ const useWalletConnection = () => {
   const connectWallet = useCallback(async () => {
     if (window.ethereum) {
       try {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.send('eth_requestAccounts', []);
-        const network = await provider.getNetwork();
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
         
-        setProvider(provider);
+        setEthereum(window.ethereum);
         setAccount(accounts[0]);
-        setChainId(network.chainId);
+        setChainId(parseInt(chainId, 16));
         setIsConnected(true);
         setError(null);
       } catch (err) {
@@ -30,24 +28,27 @@ const useWalletConnection = () => {
   }, []);
 
   const disconnectWallet = useCallback(() => {
-    setProvider(null);
+    setEthereum(null);
     setAccount(null);
     setChainId(null);
     setIsConnected(false);
   }, []);
 
   const getAddressBalance = useCallback(async (address) => {
-    if (provider && ethers.utils.isAddress(address)) {
+    if (ethereum) {
       try {
-        const balance = await provider.getBalance(address);
-        return ethers.utils.formatEther(balance);
+        const balance = await ethereum.request({
+          method: 'eth_getBalance',
+          params: [address, 'latest']
+        });
+        return parseInt(balance, 16) / 1e18; // Convert from wei to ETH
       } catch (err) {
         console.error('Failed to fetch balance:', err);
         return null;
       }
     }
     return null;
-  }, [provider]);
+  }, [ethereum]);
 
   useEffect(() => {
     const handleAccountsChanged = (accounts) => {
@@ -76,7 +77,7 @@ const useWalletConnection = () => {
   }, [account, disconnectWallet]);
 
   return {
-    provider,
+    ethereum,
     account,
     chainId,
     isConnected,
