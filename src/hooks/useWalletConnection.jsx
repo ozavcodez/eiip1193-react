@@ -6,6 +6,9 @@ const useWalletConnection = () => {
   const [chainId, setChainId] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
+  const [accountBalance, setAccountBalance] = useState(null);
+  const [address, setAddress] = useState('');
+  const [addressBalance, setAddressBalance] = useState(null);
 
   const connectWallet = useCallback(async () => {
     if (window.ethereum) {
@@ -32,14 +35,15 @@ const useWalletConnection = () => {
     setAccount(null);
     setChainId(null);
     setIsConnected(false);
+    setAccountBalance(null);
   }, []);
 
-  const getAddressBalance = useCallback(async (address) => {
+  const getAddressBalance = useCallback(async (addr) => {
     if (ethereum) {
       try {
         const balance = await ethereum.request({
           method: 'eth_getBalance',
-          params: [address, 'latest']
+          params: [addr, 'latest']
         });
         return parseInt(balance, 16) / 1e18; // Convert from wei to ETH
       } catch (err) {
@@ -49,6 +53,19 @@ const useWalletConnection = () => {
     }
     return null;
   }, [ethereum]);
+
+  const handleAddressChange = useCallback((e) => {
+    setAddress(e.target.value);
+  }, []);
+
+  const fetchAddressBalance = useCallback(async () => {
+    if (address) {
+      const bal = await getAddressBalance(address);
+      setAddressBalance(bal !== null ? bal.toFixed(4) : null);
+    } else {
+      setAddressBalance(null);
+    }
+  }, [address, getAddressBalance]);
 
   useEffect(() => {
     const handleAccountsChanged = (accounts) => {
@@ -76,15 +93,28 @@ const useWalletConnection = () => {
     };
   }, [account, disconnectWallet]);
 
+  useEffect(() => {
+    if (isConnected && account) {
+      getAddressBalance(account).then(bal => {
+        setAccountBalance(bal !== null ? bal.toFixed(4) : null);
+      });
+    }
+  }, [isConnected, account, getAddressBalance, chainId]);
+
   return {
     ethereum,
     account,
     chainId,
     isConnected,
     error,
+    accountBalance,
+    address,
+    addressBalance,
     connectWallet,
     disconnectWallet,
-    getAddressBalance
+    getAddressBalance,
+    handleAddressChange,
+    fetchAddressBalance
   };
 };
 
